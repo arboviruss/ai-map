@@ -13,37 +13,99 @@ export default async function handler(
 ) {
 
     try {
-
         let serviceAccount = JSON.parse(process.env['GOOGLE_SERVICE_ACCOUNT'] || "{}")
-
         await authenticate(serviceAccount);
 
-       var centerss = ee.Geometry.Point([91.8 - .2, 24.85]);
+        var centerss = ee.Geometry.Point([91.8 - .2, 24.85]);
 
-// Create a circle buffer around the point (units = meters)
-       var aoi = centerss.buffer(70000); // 20 km radius
+        // Create a circle buffer around the point (units = meters)
+        //var aoi = centerss.buffer(70000); // 20 km radius
 
-       // Map.addLayer(aoi, {color: 'red'}, 'AOI Circle'); // <-- REMOVE or COMMENT OUT
+        // var aoi = ee.Geometry.Rectangle([
+        //     91.8 - 1.2,   // west
+        //     24.85 - 0.6,  // south
+        //     92.05 + 0.5,  // east
+        //     25.05 + 0.09  // north
+        // ]);
 
-       var startDate = '2024-06-01';
-       var endDate = '2024-07-30';
+        var aoi = {
+            "geodesic": false,
+            "type": "MultiPolygon",
+            "coordinates": [
+              [
+                [
+                  [
+                    91.26470566751911,
+                    24.55818586728356
+                  ],
+                  [
+                    91.26470566751911,
+                    24.55818586728356
+                  ],
+                  [
+                    91.26470566751911,
+                    24.55818586728356
+                  ],
+                  [
+                    91.26470566751911,
+                    24.55818586728356
+                  ]
+                ]
+              ],
+              [
+                [
+                  [
+                    90.91863633158161,
+                    24.067602046642584
+                  ],
+                  [
+                    92.98955918314411,
+                    24.067602046642584
+                  ],
+                  [
+                    92.98955918314411,
+                    25.374871798882563
+                  ],
+                  [
+                    90.91863633158161,
+                    25.374871798882563
+                  ],
+                  [
+                    90.91863633158161,
+                    24.067602046642584
+                  ]
+                ]
+              ]
+            ]
+        }
+
+        // Map.addLayer(aoi, {color: 'red'}, 'AOI Circle'); // <-- REMOVE or COMMENT OUT
+
+        var startDate = '2024-06-01';
+        var endDate = '2024-07-30';
 
         var sentinel1 = ee.ImageCollection('COPERNICUS/S1_GRD')
             .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
-            .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
-            .filter(ee.Filter.eq('instrumentMode', 'IW')) // Interferometric Wide swath
-            .filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING')) // Or 'ASCENDING'
+            .filter(ee.Filter.eq('instrumentMode', 'IW'))
+            .filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING'))
             .filterBounds(aoi)
             .filterDate(startDate, endDate);
 
-        var filtered = sentinel1.map(applySpeckleFilter);
-        var composite = filtered.median().clip(aoi);
+        //var filtered = sentinel1.map(applySpeckleFilter);
+        //var composite = filtered.median().clip(aoi);
+
+        var composite = sentinel1.median().clip(aoi);
+
+        // Water detection function using VV polarization
+        // Water appears very dark in SAR VV polarization (low backscatter)
+        var waterThreshold = -15; // Adjust this value as needed (-12 to -18 typical range)
+        var waterMask = composite.select('VV').lt(waterThreshold).rename('water');
 
         // Calculate VV/VH ratio (useful for vegetation analysis)
-        var ratio = composite.select('VV').divide(composite.select('VH')).rename('VV_VH_ratio');
-        composite = composite.addBands(ratio);
+        //var ratio = composite.select('VV').divide(composite.select('VH')).rename('VV_VH_ratio');
+        //composite = composite.addBands(ratio);
 
-        var waterMask = detectWater(composite);
+        //var waterMask = detectWater(composite);
 
         // Get url format of the image
         // @ts-ignore
@@ -51,11 +113,39 @@ export default async function handler(
         const waterBody = await getMapId(waterMask.selfMask(), { palette: 'blue'});
 
         // Also get the image geometry
-        const imageGeom = filtered.geometry();
+        const imageGeom = composite.geometry();
         const imageGeometryGeojson = await evaluate(imageGeom);
 
-        // @ts-ignore
-        res.status(200).json({ main_map: urlFormat, water_body: waterBody.urlFormat, geojson: imageGeometryGeojson });
+        var osmRoads = ee.FeatureCollection('projects/teamarctic-studyapp/assets/hotosm_bgd_roads_lines_shp');
+        var roadStyle = {color: '#4FFCFF', width: 2};
+        var roadsInROI = osmRoads.filterBounds(aoi);
+
+        const roads = await getMapId(roadsInROI, roadStyle);
+
+        // ---------- Prepare a clean binary water mask ----------
+        var waterBinary = waterMask.gt(0); // ensure 0/1 image (true -> 1)
+
+        // ---------- Rasterize roads (correct way) ----------
+        var roadRaster = ee.Image().byte().paint({
+        featureCollection: roadsInROI,
+        color: 1,
+        width: 3   // increase this value for thicker roads
+        }).rename('roads');
+        // roadRaster has value 1 where roads exist, 0 elsewhere
+
+        // ---------- Keep only road pixels that overlap water ----------
+        var floodedRoadMask = roadRaster.updateMask(waterBinary);
+
+        const floodedRoads = await getMapId(floodedRoadMask, {min: 0, max: 1, palette: ['000000','FF0000']});
+
+
+        res.status(200).json({ 
+            // @ts-ignore
+            main_map: urlFormat, water_body: waterBody.urlFormat, 
+            // @ts-ignore
+            roads_layer: roads.urlFormat, flooded_raods: floodedRoads.urlFormat, 
+            geojson: imageGeometryGeojson 
+        });
 
     } catch(err) {
 
