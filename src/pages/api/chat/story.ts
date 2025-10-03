@@ -138,7 +138,7 @@ const ai_story = {
         **Light Blue** = seasonal wet land\n
         ‎\n
         **Blue** = high soil moisture,\n
-        ****Red** = low soil moisture\n
+        **Red** = low soil moisture\n
         ‎\n
         One the first photo we can detect VV back scatter,  
         The second one indicates Vh wet land. 
