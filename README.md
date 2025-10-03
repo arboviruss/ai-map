@@ -1,40 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# 🌊 sarEye SAR Powered Flood Mapping and Disaster Response Platform
 
-## Getting Started
+**sarEye** is a real-time disaster-response platform built for communities affected by devastating floods. Designed during the **NASA Space Apps Hackathon**, sarEye leverages **Sentinel-1 Synthetic Aperture Radar (SAR)**, **Google Earth Engine**, **Next.js**, **Google Maps**, and **OpenStreetMap** to make flood data accessible, actionable, and life-saving.
 
-First, run the development server:
+When floods strike and optical satellites fail, due to cloud cover, rain, or nightfall **sarEye steps in**. By combining radar imagery with AI and intuitive maps, sarEye ensures no community disappears from the map when they need help the most.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Why sarEye?
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Floods are among the most destructive natural disasters in **Bangladesh** and many other regions, cutting off villages, blocking roads, and endangering lives. Traditional satellite-based monitoring often fails during extreme events due to:
+- Heavy cloud cover
+- Persistent rainfall
+- Nighttime darkness
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+**Synthetic Aperture Radar (SAR)** sees through all of this. sarEye turns raw SAR data into human-friendly insights, guiding rescue efforts, aid delivery, and community resilience.
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+## 🌐 Deployment
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+> **Live Demo:** https://ai-map-drab.vercel.app/
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
+## 🌍 Impact & Vision
 
-To learn more about Next.js, take a look at the following resources:
+- **Rescue teams** reach stranded families faster
+- **Aid organizations** deliver resources more efficiently
+- **Governments** plan evacuations with clarity
+- **Communities** gain visibility and voice during disasters
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+> sarEye doesn’t stop at floods. It’s a **scalable disaster-response platform** adaptable to:
+> - Wildfires
+> - Landslides
+> - Deforestation
+> - Urban expansion
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🛠️ Tech Stack
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+| Technology        | Purpose                                |
+|-------------------|----------------------------------------|
+| **Next.js**        | Frontend framework (React-based)       |
+| **Sentinel-1 SAR** | Satellite radar imagery (C-band)       |
+| **Google Earth Engine** | SAR processing, classification     |
+| **Google Maps API** | Navigation & route planning           |
+| **OpenStreetMap**  | Localized mapping data                |
+| **Node.js / API**  | Backend integration & processing       |
+| **GeoTIFF / Cloud Optimized GeoTIFF (COG)** | Geospatial raster visualization |
