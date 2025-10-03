@@ -117,7 +117,7 @@ export default async function handler(
         const imageGeometryGeojson = await evaluate(imageGeom);
 
         var osmRoads = ee.FeatureCollection('projects/teamarctic-studyapp/assets/hotosm_bgd_roads_lines_shp');
-        var roadStyle = {color: '#4FFCFF', width: 2};
+        var roadStyle = {color: '#4fff61', width: 2};
         var roadsInROI = osmRoads.filterBounds(aoi);
 
         const roads = await getMapId(roadsInROI, roadStyle);

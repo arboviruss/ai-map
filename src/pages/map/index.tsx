@@ -21,7 +21,5 @@ export default function MapPage() {
         <WorldMap />
       </div>
     </>
-
-    
   ); 
 }

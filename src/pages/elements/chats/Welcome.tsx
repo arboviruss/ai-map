@@ -1,3 +1,4 @@
+'use client';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button"
 
@@ -17,16 +18,19 @@ function Welcome() {
 }
 
 function WelcomeButtons() {
+    // return (
+    //     <div className="flex gap-2 mt-2 ml-1">
+    //         <Badge>
+    //             Button 1
+    //         </Badge>
+    //         <Badge>
+    //             Button 2
+    //         </Badge>
+    //     </div>
+    // )
     return (
-        <div className="flex gap-2 mt-2 ml-1">
-            <Badge>
-                Button 1
-            </Badge>
-            <Badge>
-                Button 2
-            </Badge>
-        </div>
-    )    
+        <></>
+    )
 }
 
 export default Welcome;

@@ -1,53 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react';
+//import axios from 'axios';
 
-const WorldMap = dynamic(() => import('../../components/WorldMap'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-screen h-screen bg-gray-100 flex items-center justify-center animate-pulse">
-      <div className="text-gray-500">Loading map...</div>
-    </div>
-  ),
-});
-
-import { compile, run } from '@mdx-js/mdx';
-import * as runtime from 'react/jsx-runtime';
+import { Map, Map as MapComponent } from '@vis.gl/react-maplibre';
+import { Map as MapLibreMap } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css'; // See notes below
+import "mapbox-gl-infobox/styles.css";
 
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Map as MapIcon, Moon, ConciergeBell } from 'lucide-react';
+import { SendHorizontal, Map as MapIcon, Moon } from 'lucide-react';
 import { useTheme, ThemeProvider } from 'next-themes';
-
+import { Badge } from '@/components/ui/badge';
 
 import { Suspense } from "react";
 
 import Welcome, { WelcomeButtons } from './chats/Welcome';
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from 'react-toastify';
+import { bbox } from '@turf/turf';
 
-import { MDXContent, MDXRemote } from "next-mdx-remote-client/rsc";
-import dynamic from 'next/dynamic';
-import useLocationStore from '@/stores/locationStore';
-import useZoomStore from '@/stores/zoomStore';
-import useLayerStore from '@/stores/layerStore';
-import { useMapStore } from '@/stores/mapStore';
+import { MDXRemote } from "next-mdx-remote-client/rsc";
 
-const user_story = {
-    "story-progress-1": "in there any example of recent erosion or flooding?",
-    "story-progress-2": "why did this happen?",
-    "story-progress-3": "is there any other reason for massive floods in Bangladesh?",
-    "story-progress-4": "how does River system overload work?",
-    "story-progress-5": "does all these change the peak  flood volume?",
-    "story-progress-6": "is there any change of moisture  retention?",
-    "story-progress-7": "whats the negetive side?",
-    "story-progress-8": `How does NASA's SAR data analysis impact rescue operations?`,
-    "story-progress-9": "How does  SAR  data  analysis affect the local economy?"
+const components = {
+    // @ts-ignore
+    wrapper: ({ children }) => <div className="mdx-wrapper">{children}</div>,
 }
 
 interface Message {
     id: string;
     text: string;
-    parsed?: MDXContent;
     sender: 'user' | 'ai';
     actions?: Action[] | undefined | null;
 }
@@ -55,8 +39,7 @@ interface Message {
 interface Action {
     id?: string;
     type?: 'map' | 'chat';
-    function?: 'toggle' | 'show' | 'hide' | 'zoom' | 'center' | 'layer';
-    payload?: any;
+    function?: 'toggle' | 'show' | 'hide';
 }
 
 const Chat: React.FC = () => {
@@ -74,14 +57,8 @@ const Chat: React.FC = () => {
 
     const [showMap, setShowMap] = useState(false)
 
-    const [progress, setProgress] = useState(1);
-
-    const { layers, toggleLayer, setLayer } = useLayerStore();
-    const { location, setLocation } = useLocationStore();
-    const { zoom, setZoom } = useZoomStore();
-
-    const { map } = useMapStore()
-
+    const inputRef = useRef<HTMLInputElement>(null);
+    const mapRef = useRef<{ getMap: () => MapLibreMap }>(null);
 
     useEffect(() => {
         
@@ -89,40 +66,88 @@ const Chat: React.FC = () => {
     }, [])
 
     const handleSendMessage = async () => {
+        if (input.trim() === '') return;
 
-        if(progress >= 10) return;
-
-        const id = `story-progress-${progress}`
-
-        // @ts-ignore
-        const newUserMessage: Message = { id: `${id}`, text: `${user_story[`story-progress-${progress}`]}`, sender: 'user' };
+        const newUserMessage: Message = { id: `${Date.now()}-${Math.random()}`, text: input, sender: 'user' };
         setMessages((prevMessages) => [newUserMessage, ...prevMessages]); // Add new message to the beginning
+        setInput('');
         setIsLoading(true);
+        
+        const mainMap = "main-map";
+        const waterBody = "water_body";
+        
+        if(mapRef.current) {
+            let map = mapRef.current?.getMap()
+            console.log(map)
 
-        setProgress(progress + 1)
+            const res = await fetch('/api/map/data')
+            console.log(res)
 
-        try {
-            const req = await fetch('/api/chat/story', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ id: `story-progress-${progress}` }),
+            const { main_map, water_body, geojson, message } = await res.json();
+
+            map.addSource(mainMap, {
+                type: "raster",
+                tiles: [main_map],
+                tileSize: 256,
+            });
+            map.addSource(waterBody, {
+                type: "raster",
+                tiles: [water_body],
+                tileSize: 256,
+            });
+            
+
+            map.addLayer({
+                type: "raster",
+                source: mainMap,
+                id: mainMap,
+                minzoom: 0,
+                maxzoom: 20,
+            });
+            map.addLayer({
+                type: "raster",
+                source: waterBody,
+                id: waterBody,
+                minzoom: 0,
+                maxzoom: 20,
             });
 
-            let aiMessage: Message = await req.json();
+            // Then zoom it to the map layer
+            // Change geojson to bbox
+            //const bounds = bbox(geojson);
+            // @ts-ignore
+            //map.fitBounds(bounds);
+        }
 
-            let code = await compile(aiMessage.text, {
-                outputFormat: 'function-body',
-                development: false
-            })
 
-            const { default: CompiledContent } = await run(code, {
-                ...runtime,
-                baseUrl: import.meta.url,
-              });
+        try {
 
-            aiMessage.parsed = CompiledContent
+            const req = await fetch('/api/chat/completion');
+            const aiMessage: Message = await req.json();
+
+            // const aiMessage: Message = await (new Promise((resolve) => {
+            //     setTimeout(() => {
+
+            //         let actions: Action[] = [];
+
+            //         if(messages.length > 5) actions.push({
+            //             id: `${Date.now()}-${Math.random()}`,
+            //             type: 'map',
+            //             function: 'show',
+            //         })
+
+            //         resolve(
+            //             { 
+            //                 id: `${Date.now()}-${Math.random()}`, 
+            //                 text: "response.data.reply: Test Response muhahaha", 
+            //                 sender: 'ai',
+            //                 actions
+            //             }
+            //         );
+            //     }, 2000);
+            // }));
+
+
         
             setMessages((prevMessages) => [aiMessage, ...prevMessages]); // Add new message to the beginning
 
@@ -130,6 +155,9 @@ const Chat: React.FC = () => {
             if(aiMessage.actions) {
                 handleFunctions(aiMessage.actions)
             }
+
+            // @ts-ignore
+            console.log(inputRef.current?.focus())
 
         } catch (error) {
             console.error('Error sending message:', error);
@@ -144,34 +172,36 @@ const Chat: React.FC = () => {
         if(actions.length > 0) {
             for(var action of actions) {
                 if(action.type === 'map') {
-                    console.log(map)
                     if(action.function === 'show') {
                         setShowMap(true)
-                        //toast("AI Action: Opened Map")
+                        toast("AI Action: Opened Map")
                     } else if(action.function === 'hide') {
                         setShowMap(false)
                     } else if(action.function === 'toggle') {
                         setShowMap(!showMap)
-                    } else if(action.function === 'center') {
-                        map?.flyTo([action.payload.location[0], action.payload.location[1]], action.payload.zoom)
-                        //setLocation(action.payload[0], action.payload[1])
-                    } else if(action.function === 'zoom') {
-                        map?.setZoom(action.payload)
-                    } else if(action.function === 'layer') {
-                        setLayer(action.payload.layer, action.payload.show)
                     }
                 }
             }
         }
     }
 
+    const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setInput(event.target.value);
+    };
+
+    const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'Enter' && !isLoading) {
+            event.preventDefault();
+            handleSendMessage();
+        }
+    };
 
     const isUser = (msg: Message) => {
         return msg.sender === 'user';
     }
 
     return (
-        <div className='flex flex-row overflow-x-hidden select-none'>            
+        <div className='flex flex-row overflow-x-hidden'>            
         <AnimatePresence mode='wait'>
         <motion.div 
             animate={{ width: showMap ? '70%' : '100%' }} // Animate width based on showMap
@@ -179,11 +209,11 @@ const Chat: React.FC = () => {
             className="chatbox flex flex-col h-screen p-4 w-full relative border-1 border-gray-700"
         >
         <div className='topbuttons flex flex-col gap-3 justify-between items-center absolute top-0 right-0 p-10 z-99'>
-            {/* <Button
+            <Button
                 onClick={() => {toggleTheme()}}
             >
                 <Moon />
-            </Button> */}
+            </Button>
             <Button
                 // variant={"secondary"}
                 onClick={() => {
@@ -208,11 +238,10 @@ const Chat: React.FC = () => {
                 <div className={`bubble max-w-2xl text-wrap px-4 py-2 rounded-lg ${isUser(msg) ? 'bg-gray-800 text-white' : 'bg-transparent border-1 border-gray-700'}`}>
 
                     <Suspense>
-                        {msg.parsed ? (
-                            <msg.parsed />
-                        ) : (
-                            <span>{msg.text == "[WELCOME]" ? <></> : msg.text}</span>
-                        )}
+                        <MDXRemote
+                            source={msg.text}
+                            components={components}
+                        />
                     </Suspense>
                     
                     {msg.text == "[WELCOME]" ? 
@@ -241,14 +270,23 @@ const Chat: React.FC = () => {
             )}
             </AnimatePresence>
         </div>
-        <div className="p-4 bg-gray flex items-center justify-center">
+        <div className="p-4 bg-gray flex items-center">
+            <Input
+                type="text"
+                ref={inputRef}
+                className="flex-1 p-2 border border-gray-300 rounded-lg mr-2 outline-none border-none"
+                value={input}
+                onChange={handleInputChange}
+                onKeyUp={handleKeyPress}
+                placeholder="Type a message..."
+                // disabled={isLoading}
+            />
             <Button
-                // variant={"outline"}
+                variant={"outline"}
                 onClick={handleSendMessage}
-                disabled={isLoading}
+                disabled={isLoading || input.trim() === ''}
             >
-            <ConciergeBell />
-            Continue
+            <SendHorizontal />
             </Button>
         </div>
         </motion.div>
@@ -259,9 +297,24 @@ const Chat: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 100 }}
                 transition={{ duration: 0.5, ease: 'easeInOut' }}
-                className='select-none w-[65%]'
+                className='relative select-none'
             >
-                <WorldMap />
+                <div className='mapInfo absolute top-0 left-0 z-99 p-4'>
+                    <Badge variant={'secondary'}>
+                        Sylhet, Bangladesh
+                    </Badge>
+                </div>
+                <Map
+                    // @ts-ignore
+                    ref={mapRef}
+                    initialViewState={{
+                        longitude: 91.85856,
+                        latitude: 24.8951,
+                        zoom: 11,
+                    }}
+                    style={{width: '800px'}}
+                    mapStyle="https://demotiles.maplibre.org/style.json"
+                />
             </motion.div>
         )}
         {/* </AnimatePresence> */}
