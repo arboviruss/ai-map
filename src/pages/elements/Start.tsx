@@ -20,7 +20,7 @@ export default function Start(props: { setStarted: React.Dispatch<React.SetState
         <main className="w-full flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
             <div className="main w-full flex flex-col gap-4 items-center justify-center ">
                 <h1 className="text-4xl sm:text-5xl font-bold text-center sm:text-left max-w-2xl leading-tight">
-                    SAR DATA VISUALIZER
+                    sarEye
                 </h1>
                 <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
                     <li className="tracking-[-.01em]">
